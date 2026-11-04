@@ -1,0 +1,62 @@
+# Sensitive configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+.claude/
+.cc-switch/
+
+# Personal runtime data must also remain outside this repository
+data/
+userdata/
+user-data/
+runtime-data/
+profiles/
+/sessions/
+
+# Logs and caches
+logs/
+*.log
+cache/
+.cache/
+temp/
+tmp/
+
+# Local databases and SQLite sidecars; synthetic fixtures require explicit review
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Root build output; do not ignore docs/release/
+/dist/
+.ui-shots/
+/build/
+/out/
+/release/
+coverage/
+
+# Tools and dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+target/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
