@@ -80,7 +80,8 @@
     },
     "portable": {
       "artifactName": "CLI-Desk-for-Claude-Code-${version}-portable.${ext}"
-    }
+    },
+    "npmRebuild": false
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
