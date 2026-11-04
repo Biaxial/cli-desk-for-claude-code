@@ -12,7 +12,13 @@ A desktop workspace that makes the Claude Code CLI easier to use.
 
 ### 项目初衷 / Why
 
-Claude Code 桌面版需要 Anthropic 账号登录，封号风险大；CLI 接 API 可以避免这个问题，但 CLI 的使用体验又不如桌面版。所以我们把 CLI 包装成了桌面版，致力于提升 Claude Code CLI 的使用体验和易用性。目前只是初版，后期会更新更多合理适配。
+官方 Claude Code 桌面应用需要登录 Anthropic 账号。对于所在地区不在官方支持范围内、需要通过 VPN 或代理才能访问的用户，以这种方式登录官方账号存在较高的风控与封号风险。
+
+Claude Code CLI 则可以直接接入 API Key（包括兼容 Anthropic 协议的第三方服务），无需登录 Anthropic 账号，从根源上绕开了这一风险。但纯命令行的交互方式门槛较高，日常使用也不如图形界面直观顺手。
+
+CLI Desk 正是为这部分用户而做：它在本机调用你已经配置好的 Claude Code CLI，为其提供一个完整的桌面图形界面——对话、会话历史、模型切换、附件与文档读取等——让你在不登录官方账号的前提下，获得接近桌面应用的使用体验。
+
+当前为 v0.1.0 首个版本，后续会持续完善功能与平台适配。
 
 ### 功能
 
@@ -140,7 +146,13 @@ CLI Desk 是独立的非官方第三方工具，与 Anthropic 无关联，也未
 
 ### Why this project
 
-The Claude Code desktop app requires signing in with an Anthropic account, which carries a high risk of the account being banned. Connecting the CLI to an API avoids this problem, but the CLI experience is not as good as the desktop app. So we wrapped the CLI in a desktop app, aiming to make the Claude Code CLI more pleasant and easier to use. This is an early first version, and more sensible adaptations will follow.
+The official Claude Code desktop app requires signing in with an Anthropic account. For users in regions outside Anthropic's supported list who have to go through a VPN or proxy, signing in this way carries a real risk of triggering account reviews or bans.
+
+The Claude Code CLI, on the other hand, can run on an API key (including third-party Anthropic-compatible providers) with no Anthropic account sign-in at all, which sidesteps that risk entirely. The trade-off is a terminal-only workflow that is harder to pick up and less comfortable for everyday use than a graphical app.
+
+CLI Desk is built for exactly these users. It drives the Claude Code CLI you have already configured on your machine and gives it a full desktop interface — chat, session history, model switching, attachments and document reading — so you get a desktop-app experience without ever signing in to an official account.
+
+This is v0.1.0, the first release; features and platform support will keep improving.
 
 ### Features
 
