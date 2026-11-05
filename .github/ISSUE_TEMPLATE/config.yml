@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability privately | 私下报告安全漏洞
+    url: https://github.com/jxy2336-bot/cli-desk-for-claude-code/security/advisories/new
+    about: Use Security → Report a vulnerability. Do not open a public issue or include secrets. 请使用 Security → Report a vulnerability，不要开公开 Issue，也不要包含机密。
