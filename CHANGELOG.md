@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.1] - 2026-11-08
+
+### 简体中文
+
+- 调整界面间距、圆角、阴影和字号层级，并用纯 CSS 增加输入框生成态边光、思考指示和工具调用状态。未引入 React 或其他 UI 组件库。
+- 最近聊天支持右键和行内菜单：删除、移动到其他项目、置顶。
+- 欢迎空状态的标记改为 Claude 星标图标，不再使用空白渐变方块。
+
+### English
+
+- Refines spacing, radius, shadow, and type tokens, and adds a pure CSS composer border glow, thinking indicator, and tool-call status. No React or other UI component library.
+- Recent chats support a right-click and row menu: delete, move to another project, and pin.
+- The welcome empty-state mark uses the Claude asterisk icon instead of a blank gradient square.
+
 ## [0.1.0] - 2026-11-04
 
 ### 简体中文

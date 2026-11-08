@@ -1,18 +1,18 @@
 {
   "name": "cli-desk-for-claude-code",
   "productName": "CLI Desk for Claude Code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Unofficial third-party desktop companion for the Claude Code CLI",
   "license": "MIT",
   "author": "Biaxial Studio",
-  "homepage": "https://github.com/jxy2336-bot/cli-desk-for-claude-code#readme",
+  "homepage": "https://github.com/Biaxial/cli-desk-for-claude-code#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jxy2336-bot/cli-desk-for-claude-code.git"
+    "url": "git+https://github.com/Biaxial/cli-desk-for-claude-code.git"
   },
   "bugs": {
-    "url": "https://github.com/jxy2336-bot/cli-desk-for-claude-code/issues"
+    "url": "https://github.com/Biaxial/cli-desk-for-claude-code/issues"
   },
   "main": "dist/main.cjs",
   "scripts": {
