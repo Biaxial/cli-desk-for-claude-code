@@ -19,6 +19,7 @@ import { buildDocxPromptSection, DocxExtractionError, extractDocxText, MAX_DOCX_
 import { isLocale, systemLocaleToLocale, t } from '../shared/i18n';
 import { PRODUCT_NAME } from '../shared/brand';
 import { resolveUserDataLocation } from './persistence/user-data-location';
+import { focusExistingWindow, shouldStartMainWindow } from './single-instance';
 
 app.setName(PRODUCT_NAME);
 
@@ -37,6 +38,19 @@ const userDataLocation = resolveUserDataLocation({
 });
 if (userDataLocation.source === 'env' || userDataLocation.source === 'env-legacy') mkdirSync(userDataLocation.path, { recursive: true });
 app.setPath('userData', userDataLocation.path);
+
+// The lock is keyed by userData, so setPath must run first. A second CLIDesk.exe
+// or `electron .` for this store focuses the open window and exits before it can
+// start another Claude session. A different userData directory is a separate desk.
+const hasInstanceLock = app.requestSingleInstanceLock();
+let focusWhenReady = false;
+if (!hasInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!focusExistingWindow(window)) focusWhenReady = true;
+  });
+}
 
 function sendChatEvent(event: ChatEvent): void {
   if (window && !window.isDestroyed()) window.webContents.send('chat:event', event);
@@ -99,6 +113,7 @@ function syncChatPersistence(): void {
 }
 
 app.whenReady().then(() => {
+  if (!shouldStartMainWindow(hasInstanceLock)) return;
   try {
     const logDir = path.join(app.getPath('userData'), 'logs');
     mkdirSync(logDir, { recursive: true });
@@ -136,6 +151,10 @@ app.whenReady().then(() => {
   });
   window.loadFile(path.join(__dirname, 'renderer/index.html'));
   window.on('closed', () => { window = undefined; session.stop(); chat.stop(); });
+  if (focusWhenReady) {
+    focusExistingWindow(window);
+    focusWhenReady = false;
+  }
 });
 app.on('before-quit', () => { session?.stop(); chat?.stop(); });
 
