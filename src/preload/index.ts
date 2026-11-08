@@ -33,6 +33,9 @@ contextBridge.exposeInMainWorld('ccDesktop', Object.freeze({
   healthCheck: () => ipcRenderer.invoke('health:check') as Promise<HealthCheckResult>,
   chatList: () => ipcRenderer.invoke('chat:list') as Promise<SessionRecord[]>,
   chatRename: (sessionId: string, title: string) => ipcRenderer.invoke('chat:rename', sessionId, title) as Promise<SessionRecord | undefined>,
+  chatSetPinned: (sessionId: string, pinned: boolean) => ipcRenderer.invoke('chat:setPinned', sessionId, pinned) as Promise<SessionRecord>,
+  chatMove: (sessionId: string, projectId: string) => ipcRenderer.invoke('chat:move', sessionId, projectId) as Promise<SessionRecord>,
+  chatDelete: (sessionId: string) => ipcRenderer.invoke('chat:delete', sessionId) as Promise<{ removed: boolean }>,
   models: (force?: boolean) => ipcRenderer.invoke('models:list', force === true) as Promise<{ models: CatalogModel[]; fromCache: boolean; error?: string }>,
   chatMessages: (sessionId: string) => ipcRenderer.invoke('chat:messages', sessionId) as Promise<ChatMessage[]>,
   pathForFile: (file: File) => {

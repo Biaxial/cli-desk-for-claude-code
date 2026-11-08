@@ -90,6 +90,10 @@ function syncChatPersistence(): void {
     createdAt: existing?.createdAt ?? new Date().toISOString(),
     lastActiveAt: new Date().toISOString(),
   };
+  if (existing?.pinned === true) {
+    record.pinned = true;
+    if (existing.pinnedAt) record.pinnedAt = existing.pinnedAt;
+  }
   sessions.upsert(record);
   sessions.saveMessages(sessionId, conversation);
 }
@@ -391,6 +395,38 @@ ipcMain.handle('models:list', async (event, force: unknown) => {
   }
   if (cached && cached.models.length > 0) return { models: cached.models, fromCache: true, error: probed.error };
   return { models: [], fromCache: false, error: probed.error || t('model.probe.empty', {}, settings.language) };
+});
+
+ipcMain.handle('chat:setPinned', (event, sessionId: unknown, pinned: unknown) => {
+  fromWindow(event.sender);
+  if (typeof sessionId !== 'string' || typeof pinned !== 'boolean') throw new Error(t('ipc.invalidSessionId', {}, appLocale()));
+  const updated = sessions.setPinned(sessionId, pinned);
+  if (!updated) throw new Error(t('ipc.sessionMissing', {}, appLocale()));
+  return updated;
+});
+
+ipcMain.handle('chat:move', (event, sessionId: unknown, projectId: unknown) => {
+  fromWindow(event.sender);
+  if (typeof sessionId !== 'string' || typeof projectId !== 'string') throw new Error(t('ipc.invalidSessionId', {}, appLocale()));
+  const project = projects.snapshot().projects.find(item => item.id === projectId);
+  if (!project) throw new Error(t('project.notRegistered', {}, appLocale()));
+  if (!sessions.get(sessionId)) throw new Error(t('ipc.sessionMissing', {}, appLocale()));
+  const updated = sessions.move(sessionId, project.id, project.directory);
+  if (chat.sessionIdValue() === sessionId) chatProject = { id: project.id, directory: project.directory };
+  return updated;
+});
+
+ipcMain.handle('chat:delete', async (event, sessionId: unknown) => {
+  fromWindow(event.sender);
+  if (typeof sessionId !== 'string') throw new Error(t('ipc.invalidSessionId', {}, appLocale()));
+  if (!sessions.get(sessionId)) throw new Error(t('ipc.sessionMissing', {}, appLocale()));
+  if (chat.sessionIdValue() === sessionId) {
+    if (chat.isBusy()) throw new Error(t('ipc.busySessionDelete', {}, appLocale()));
+    chatProject = undefined;
+    await chat.discardSettled();
+  }
+  sessions.remove(sessionId);
+  return { removed: true };
 });
 
 ipcMain.handle('chat:rename', (event, sessionId: unknown, title: unknown) => {

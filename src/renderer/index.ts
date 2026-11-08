@@ -35,6 +35,9 @@ declare global {
       healthCheck(): Promise<HealthCheckResult>;
       chatList(): Promise<SessionRecord[]>;
       chatRename(sessionId: string, title: string): Promise<SessionRecord | undefined>;
+      chatSetPinned(sessionId: string, pinned: boolean): Promise<SessionRecord>;
+      chatMove(sessionId: string, projectId: string): Promise<SessionRecord>;
+      chatDelete(sessionId: string): Promise<{ removed: boolean }>;
       models(force?: boolean): Promise<{ models: CatalogModel[]; fromCache: boolean; error?: string }>;
       chatMessages(sessionId: string): Promise<ChatMessage[]>;
       pathForFile(file: File): string;
@@ -1357,7 +1360,7 @@ function deliverChat(
   return true;
 }
 
-function svg(name: 'plus' | 'folder' | 'chevron' | 'pencil' | 'search' | 'gear' | 'check' | 'terminal' | 'paperclip'): SVGElement {
+function svg(name: 'plus' | 'folder' | 'chevron' | 'pencil' | 'search' | 'gear' | 'check' | 'terminal' | 'paperclip' | 'pin' | 'dots'): SVGElement {
   const ns = 'http://www.w3.org/2000/svg';
   const el = document.createElementNS(ns, 'svg');
   el.setAttribute('viewBox', '0 0 24 24');
@@ -1373,7 +1376,9 @@ function svg(name: 'plus' | 'folder' | 'chevron' | 'pencil' | 'search' | 'gear' 
     gear: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
     check: 'M5 12.5 10 17l9-10',
     terminal: 'M5 7l6 5-6 5M13 17h6',
-    paperclip: 'M21.4 11.1 12.7 19.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5'
+    paperclip: 'M21.4 11.1 12.7 19.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5',
+    pin: 'M12 21s-6-4.6-6-10a6 6 0 0 1 12 0c0 5.4-6 10-6 10zM12 11.2a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z',
+    dots: 'M6 12.2a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4zM12 12.2a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4zM18 12.2a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4z'
   };
   path.setAttribute('d', d[name]);
   path.setAttribute('fill', 'none');
@@ -1478,24 +1483,250 @@ async function loadModelMenu(force = false): Promise<void> {
   }
 }
 
-function sessionRow(rec: SessionRecord): HTMLButtonElement {
+function sessionRow(rec: SessionRecord): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'side-session-wrap';
+  if (rec.pinned) wrap.classList.add('is-pinned');
+
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'side-session';
   if (rec.sessionId === chatSessionId) row.classList.add('active');
+  const titleRow = document.createElement('span');
+  titleRow.className = 'side-session-title';
+  if (rec.pinned) {
+    const pin = document.createElement('span');
+    pin.className = 'side-pin';
+    pin.title = t('sidebar.pinned');
+    pin.append(svg('pin'));
+    titleRow.append(pin);
+  }
   const title = document.createElement('strong');
   const rawTitle = rec.title && !isDefaultSessionTitle(rec.title) ? rec.title : t('sidebar.newChat');
   title.textContent = rawTitle;
+  titleRow.append(title);
   const preview = document.createElement('span');
   preview.textContent = rec.preview || t('chat.noSummary');
-  row.append(title, preview);
+  row.append(titleRow, preview);
   row.addEventListener('click', () => {
+    closeSessionMenu();
     void attempt(() => launchChat('resume', { resumeSessionId: rec.sessionId }));
   });
-  return row;
+
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'side-session-more';
+  more.setAttribute('aria-label', t('sidebar.sessionActions'));
+  more.setAttribute('aria-haspopup', 'menu');
+  more.setAttribute('aria-expanded', 'false');
+  more.append(svg('dots'));
+  const openFromMore = () => {
+    if (more.getAttribute('aria-expanded') === 'true') {
+      closeSessionMenu();
+      return;
+    }
+    const rect = more.getBoundingClientRect();
+    openSessionMenu(rec, more, rect.left, rect.bottom + 4);
+  };
+  more.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    openFromMore();
+  });
+  const openFromPointer = (event: MouseEvent) => {
+    event.preventDefault();
+    openSessionMenu(rec, more, event.clientX, event.clientY);
+  };
+  row.addEventListener('contextmenu', openFromPointer);
+  more.addEventListener('contextmenu', openFromPointer);
+  const openFromKeyboard = (event: KeyboardEvent) => {
+    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+      event.preventDefault();
+      openFromMore();
+    }
+  };
+  row.addEventListener('keydown', openFromKeyboard);
+  more.addEventListener('keydown', openFromKeyboard);
+
+  wrap.append(row, more);
+  return wrap;
+}
+
+let closeSessionMenu = (): void => {};
+
+function sessionBusy(sessionId: string): boolean {
+  return sessionId === chatSessionId && (chatState === 'starting' || chatState === 'generating' || chatState === 'waiting');
+}
+
+function clearOpenChat(): void {
+  chatMessages = [];
+  messageEls = new Map();
+  chatSessionId = undefined;
+  chatModel = undefined;
+  lastUserText = undefined;
+  latestFailedMessageId = undefined;
+  pendingTitle = undefined;
+  clearErrorHint();
+  chatState = 'idle';
+  noticeText = '';
+  noticeRender = undefined;
+}
+
+async function finishSessionAction(): Promise<void> {
+  await refreshSessions();
+  if (page === 'history') render();
+}
+
+async function runSessionAction(sessionId: string, action: () => Promise<unknown>, removed = false): Promise<void> {
+  try {
+    if (removed && sessionBusy(sessionId)) {
+      showMessage('ipc.busySessionDelete');
+      return;
+    }
+    await action();
+    if (removed && sessionId === chatSessionId) {
+      clearOpenChat();
+      page = 'chat';
+      await refreshSessions();
+      render();
+      return;
+    }
+    await finishSessionAction();
+  } catch (error) {
+    message(error instanceof Error ? error.message : String(error));
+  }
+}
+
+function openSessionMenu(rec: SessionRecord, more: HTMLButtonElement, x: number, y: number): void {
+  closeSessionMenu();
+  const menu = document.createElement('div');
+  menu.className = 'session-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', t('sidebar.sessionMenu'));
+  more.setAttribute('aria-expanded', 'true');
+
+  const place = () => {
+    menu.style.left = '0px';
+    menu.style.top = '0px';
+    const rect = menu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8));
+    const top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  };
+  const focusItem = (index: number) => {
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+    if (items.length === 0) return;
+    items[(index + items.length) % items.length].focus();
+  };
+  const menuItem = (label: string, action: () => void, danger = false) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'session-menu-item';
+    if (danger) button.classList.add('is-danger');
+    button.setAttribute('role', 'menuitem');
+    button.textContent = label;
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      action();
+    });
+    return button;
+  };
+  const showRoot = () => {
+    menu.replaceChildren(
+      menuItem(rec.pinned ? t('sidebar.unpin') : t('sidebar.pin'), () => {
+        closeSessionMenu();
+        void runSessionAction(rec.sessionId, () => api.chatSetPinned(rec.sessionId, !rec.pinned));
+      }),
+      menuItem(t('sidebar.move'), () => showMove()),
+      menuItem(t('sidebar.delete'), () => showConfirm(), true)
+    );
+    focusItem(0);
+    place();
+  };
+  const showMove = () => {
+    menu.replaceChildren();
+    const others = (settings?.projects ?? []).filter(project => project.id !== rec.projectId);
+    if (others.length === 0) {
+      const note = document.createElement('p');
+      note.className = 'session-menu-note';
+      note.textContent = t('sidebar.noOtherProject');
+      menu.append(note);
+    } else {
+      for (const project of others) {
+        menu.append(menuItem(project.name, () => {
+          closeSessionMenu();
+          void runSessionAction(rec.sessionId, () => api.chatMove(rec.sessionId, project.id));
+        }));
+      }
+    }
+    menu.append(menuItem(t('sidebar.cancel'), () => showRoot()));
+    focusItem(0);
+    place();
+  };
+  const showConfirm = () => {
+    if (sessionBusy(rec.sessionId)) {
+      closeSessionMenu();
+      showMessage('ipc.busySessionDelete');
+      return;
+    }
+    menu.replaceChildren();
+    const note = document.createElement('p');
+    note.className = 'session-menu-note';
+    note.textContent = t('sidebar.deleteConfirm');
+    const actions = document.createElement('div');
+    actions.className = 'session-menu-confirm';
+    const cancel = menuItem(t('sidebar.cancel'), () => showRoot());
+    const confirm = menuItem(t('sidebar.confirmDelete'), () => {
+      closeSessionMenu();
+      void runSessionAction(rec.sessionId, () => api.chatDelete(rec.sessionId), true);
+    }, true);
+    actions.append(cancel, confirm);
+    menu.append(note, actions);
+    cancel.focus();
+    place();
+  };
+  const onKey = (event: KeyboardEvent) => {
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSessionMenu();
+      more.focus();
+    } else if (event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
+      event.preventDefault();
+      focusItem(index + 1);
+    } else if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
+      event.preventDefault();
+      focusItem(index <= 0 ? items.length - 1 : index - 1);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      focusItem(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      focusItem(items.length - 1);
+    }
+  };
+  const onPointer = (event: Event) => {
+    const target = event.target;
+    if (target instanceof Node && (menu.contains(target) || more.contains(target))) return;
+    closeSessionMenu();
+  };
+  document.body.append(menu);
+  document.addEventListener('keydown', onKey);
+  document.addEventListener('pointerdown', onPointer, true);
+  closeSessionMenu = () => {
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('pointerdown', onPointer, true);
+    more.setAttribute('aria-expanded', 'false');
+    if (menu.isConnected) menu.remove();
+    closeSessionMenu = () => {};
+  };
+  showRoot();
 }
 
 function paintSidebar(): void {
+  closeSessionMenu();
   const host = document.getElementById('sideScroll');
   if (!host) return;
   host.replaceChildren();
@@ -1989,6 +2220,7 @@ function dressChrome(): void {
   if (pencil && !pencil.querySelector('svg')) pencil.append(svg('pencil'));
 }
 dressChrome();
+document.getElementById('sideScroll')?.addEventListener('scroll', () => closeSessionMenu(), { passive: true });
 
 function installFileDrop(): void {
   const keepWindow = (event: DragEvent) => {

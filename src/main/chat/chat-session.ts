@@ -157,6 +157,20 @@ export class ChatSessionCoordinator {
     if (!this.acceptsSend()) throw new Error(this.lastFailure || 'CLI 进程已退出。请再发送一次，或新建会话。');
   }
 
+  /**
+   * Forget a settled chat so a deleted index row cannot be written back.
+   * The session id is cleared before the process is torn down.
+   */
+  async discardSettled(): Promise<void> {
+    if (this.handoff || this.isBusyState()) throw new Error('A chat session is already active');
+    this.sessionId = undefined;
+    this.messages = [];
+    this.launchContext = undefined;
+    await this.releaseSettled();
+    this.reset();
+    this.setState('idle');
+  }
+
   /** Drop a settled supervisor so a new chat or the native terminal can take the project lock. */
   async releaseSettled(): Promise<void> {
     if (this.handoff || this.isBusyState()) throw new Error('A chat session is already active');

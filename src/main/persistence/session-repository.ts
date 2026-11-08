@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { ChatMessage, SessionRecord, isPlainObject } from '../../shared/contracts';
 
@@ -6,7 +6,9 @@ function isSessionRecord(value: unknown): value is SessionRecord {
   return isPlainObject(value) && typeof value.sessionId === 'string' && typeof value.projectId === 'string' &&
     typeof value.projectDirectory === 'string' && typeof value.title === 'string' && typeof value.preview === 'string' &&
     typeof value.messageCount === 'number' && typeof value.createdAt === 'string' && typeof value.lastActiveAt === 'string' &&
-    (value.titleEdited === undefined || typeof value.titleEdited === 'boolean');
+    (value.titleEdited === undefined || typeof value.titleEdited === 'boolean') &&
+    (value.pinned === undefined || typeof value.pinned === 'boolean') &&
+    (value.pinnedAt === undefined || typeof value.pinnedAt === 'string');
 }
 function isChatMessage(value: unknown): value is ChatMessage {
   return isPlainObject(value) && typeof value.id === 'string' && (value.role === 'user' || value.role === 'assistant') &&
@@ -36,7 +38,15 @@ export class SessionRepository {
     renameSync(temporary, this.filename);
   }
   list(): SessionRecord[] {
-    return this.load().sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
+    return this.load().sort((a, b) => {
+      const pinDelta = Number(b.pinned === true) - Number(a.pinned === true);
+      if (pinDelta !== 0) return pinDelta;
+      if (a.pinned === true && b.pinned === true) {
+        const pinnedOrder = (b.pinnedAt ?? '').localeCompare(a.pinnedAt ?? '');
+        if (pinnedOrder !== 0) return pinnedOrder;
+      }
+      return b.lastActiveAt.localeCompare(a.lastActiveAt);
+    });
   }
   get(sessionId: string): SessionRecord | undefined {
     return this.load().find(item => item.sessionId === sessionId);
@@ -46,6 +56,38 @@ export class SessionRepository {
     const index = records.findIndex(item => item.sessionId === record.sessionId);
     if (index >= 0) records[index] = record; else records.push(record);
     this.save(records);
+  }
+  setPinned(sessionId: string, pinned: boolean): SessionRecord | undefined {
+    const records = this.load();
+    const record = records.find(item => item.sessionId === sessionId);
+    if (!record) return undefined;
+    if (pinned) {
+      record.pinned = true;
+      record.pinnedAt = new Date().toISOString();
+    } else {
+      delete record.pinned;
+      delete record.pinnedAt;
+    }
+    this.save(records);
+    return record;
+  }
+  move(sessionId: string, projectId: string, projectDirectory: string): SessionRecord | undefined {
+    const records = this.load();
+    const record = records.find(item => item.sessionId === sessionId);
+    if (!record) return undefined;
+    record.projectId = projectId;
+    record.projectDirectory = projectDirectory;
+    this.save(records);
+    return record;
+  }
+  remove(sessionId: string): boolean {
+    const records = this.load();
+    const next = records.filter(item => item.sessionId !== sessionId);
+    if (next.length === records.length) return false;
+    this.save(next);
+    const file = this.messagesPath(sessionId);
+    if (existsSync(file)) unlinkSync(file);
+    return true;
   }
   touch(sessionId: string, patch: Partial<Pick<SessionRecord, 'title' | 'preview' | 'messageCount' | 'lastActiveAt' | 'titleEdited'>>): void {
     const records = this.load();
