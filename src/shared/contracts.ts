@@ -63,6 +63,10 @@ export type SessionRecord = {
   lastActiveAt: string;
   /** When true, sync keeps this title instead of replacing it from the first question. */
   titleEdited?: boolean;
+  /** Sidebar pin. Omitted when the chat is not pinned. */
+  pinned?: boolean;
+  /** ISO time of the latest pin, used to keep pinned chats in a stable order. */
+  pinnedAt?: string;
 };
 
 export type ChatLaunch = { resumeSessionId?: string; continueLatest?: boolean };

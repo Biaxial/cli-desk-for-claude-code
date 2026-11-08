@@ -75,6 +75,7 @@ Promise.all([
   esbuild.build({ entryPoints: [path.join(root, 'src/main/persistence/project-repository.ts')], outfile: path.join(dist, 'project-repository.cjs'), bundle: true, platform: 'node', target: 'node24', format: 'cjs' }),
   esbuild.build({ entryPoints: [path.join(root, 'src/main/persistence/session-repository.ts')], outfile: path.join(dist, 'session-repository.cjs'), bundle: true, platform: 'node', target: 'node24', format: 'cjs' }),
   esbuild.build({ entryPoints: [path.join(root, 'src/main/persistence/user-data-location.ts')], outfile: path.join(dist, 'user-data-location.cjs'), bundle: true, platform: 'node', target: 'node24', format: 'cjs' }),
+  esbuild.build({ entryPoints: [path.join(root, 'src/main/single-instance.ts')], outfile: path.join(dist, 'single-instance.cjs'), bundle: true, platform: 'node', target: 'node24', format: 'cjs' }),
   esbuild.build({ entryPoints: [path.join(root, 'src/main/chat/chat-session.ts')], outfile: path.join(dist, 'chat-session.cjs'), bundle: true, platform: 'node', target: 'node24', format: 'cjs' }),
   esbuild.build({ entryPoints: [path.join(root, 'src/main/cli/validate-cli.ts')], outfile: path.join(dist, 'validate-cli.cjs'), bundle: true, platform: 'node', target: 'node24', format: 'cjs' }),
   esbuild.build({ entryPoints: [path.join(root, 'src/main/cli/health-check.ts')], outfile: path.join(dist, 'health-check.cjs'), bundle: true, platform: 'node', target: 'node24', format: 'cjs' }),

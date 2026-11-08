@@ -1,25 +1,25 @@
 {
   "name": "cli-desk-for-claude-code",
   "productName": "CLI Desk for Claude Code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Unofficial third-party desktop companion for the Claude Code CLI",
   "license": "MIT",
   "author": "Biaxial Studio",
-  "homepage": "https://github.com/jxy2336-bot/cli-desk-for-claude-code#readme",
+  "homepage": "https://github.com/Biaxial/cli-desk-for-claude-code#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jxy2336-bot/cli-desk-for-claude-code.git"
+    "url": "git+https://github.com/Biaxial/cli-desk-for-claude-code.git"
   },
   "bugs": {
-    "url": "https://github.com/jxy2336-bot/cli-desk-for-claude-code/issues"
+    "url": "https://github.com/Biaxial/cli-desk-for-claude-code/issues"
   },
   "main": "dist/main.cjs",
   "scripts": {
     "build:native": "node scripts/build-native.cjs",
     "build": "npm run build:native && node scripts/build.cjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test --test-force-exit tests/unit/brand-packaging.cjs tests/unit/brand-name.cjs tests/unit/user-data-location.cjs tests/unit/byte-lines.cjs tests/unit/model-catalog.cjs tests/unit/dropped-paths.cjs tests/unit/attachments.cjs tests/unit/docx-extract.cjs tests/unit/error-hints.cjs tests/unit/claude-settings.cjs tests/unit/health-check.cjs tests/unit/project-repository.cjs tests/unit/i18n.cjs tests/unit/i18n-coverage.cjs tests/unit/validate-cli.cjs tests/unit/validate-cli-errors.cjs tests/unit/session-repository.cjs tests/unit/resume-plan.cjs tests/integration/session-lock.cjs tests/integration/chat-mock.cjs tests/integration/chat-watchdog.cjs tests/integration/chat-session-lifecycle.cjs tests/integration/chat-resume.cjs tests/integration/chat-exit-settle.cjs tests/integration/chat-stability.cjs tests/integration/chat-chinese-turn.cjs tests/integration/chat-synthetic-error.cjs",
+    "test": "npm run build && node --test --test-force-exit tests/unit/brand-packaging.cjs tests/unit/brand-name.cjs tests/unit/user-data-location.cjs tests/unit/single-instance.cjs tests/unit/byte-lines.cjs tests/unit/model-catalog.cjs tests/unit/dropped-paths.cjs tests/unit/attachments.cjs tests/unit/docx-extract.cjs tests/unit/error-hints.cjs tests/unit/claude-settings.cjs tests/unit/health-check.cjs tests/unit/project-repository.cjs tests/unit/i18n.cjs tests/unit/i18n-coverage.cjs tests/unit/validate-cli.cjs tests/unit/validate-cli-errors.cjs tests/unit/session-repository.cjs tests/unit/resume-plan.cjs tests/integration/session-lock.cjs tests/integration/single-instance.cjs tests/integration/chat-mock.cjs tests/integration/chat-watchdog.cjs tests/integration/chat-session-lifecycle.cjs tests/integration/chat-resume.cjs tests/integration/chat-exit-settle.cjs tests/integration/chat-stability.cjs tests/integration/chat-chinese-turn.cjs tests/integration/chat-synthetic-error.cjs",
     "screenshots": "electron scripts/capture-ui-screenshots.cjs",
     "test:cli": "npm run build && node --test --test-force-exit tests/integration/chat-cli.cjs",
     "start": "npm run build && node scripts/start.cjs",

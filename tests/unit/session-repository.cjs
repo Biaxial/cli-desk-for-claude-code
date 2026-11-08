@@ -30,6 +30,39 @@ test('session repository persists index and per-session messages', () => {
   assert.ok(existsSync(path.join(data, 'sessions.json')));
 });
 
+test('pinned chats stay ahead of newer chats, and move keeps the pin', () => {
+  const data = mkdtempSync(path.join(tmpdir(), 'cc-desktop-sessions-'));
+  const repo = new SessionRepository(data);
+  repo.upsert(record('older', { lastActiveAt: '2026-11-01T00:00:00.000Z' }));
+  repo.upsert(record('newer', { lastActiveAt: '2026-11-03T00:00:00.000Z', projectId: 'project-1' }));
+  const pinned = repo.setPinned('older', true);
+  assert.equal(pinned.pinned, true);
+  assert.equal(typeof pinned.pinnedAt, 'string');
+  assert.deepEqual(repo.list().map(item => item.sessionId), ['older', 'newer']);
+  const moved = repo.move('older', 'project-2', 'D:/other');
+  assert.equal(moved.projectId, 'project-2');
+  assert.equal(moved.projectDirectory, 'D:/other');
+  assert.equal(moved.pinned, true);
+  assert.equal(moved.preview, '预览');
+  assert.equal(repo.setPinned('older', false).pinned, undefined);
+  assert.equal(repo.list()[0].sessionId, 'newer');
+  assert.equal(repo.setPinned('missing', true), undefined);
+  assert.equal(repo.move('missing', 'project-2', 'D:/other'), undefined);
+});
+
+test('remove drops the index entry and the message file', () => {
+  const data = mkdtempSync(path.join(tmpdir(), 'cc-desktop-sessions-'));
+  const repo = new SessionRepository(data);
+  repo.upsert(record('s1'));
+  repo.saveMessages('s1', messages);
+  assert.equal(existsSync(repo.messagesPath('s1')), true);
+  assert.equal(repo.remove('s1'), true);
+  assert.equal(repo.get('s1'), undefined);
+  assert.equal(existsSync(repo.messagesPath('s1')), false);
+  assert.equal(repo.remove('s1'), false);
+  assert.deepEqual(repo.list(), []);
+});
+
 test('session repository touches metadata without losing other fields', () => {
   const data = mkdtempSync(path.join(tmpdir(), 'cc-desktop-sessions-'));
   const repo = new SessionRepository(data);

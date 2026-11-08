@@ -19,6 +19,7 @@ import { buildDocxPromptSection, DocxExtractionError, extractDocxText, MAX_DOCX_
 import { isLocale, systemLocaleToLocale, t } from '../shared/i18n';
 import { PRODUCT_NAME } from '../shared/brand';
 import { resolveUserDataLocation } from './persistence/user-data-location';
+import { focusExistingWindow, shouldStartMainWindow } from './single-instance';
 
 app.setName(PRODUCT_NAME);
 
@@ -37,6 +38,19 @@ const userDataLocation = resolveUserDataLocation({
 });
 if (userDataLocation.source === 'env' || userDataLocation.source === 'env-legacy') mkdirSync(userDataLocation.path, { recursive: true });
 app.setPath('userData', userDataLocation.path);
+
+// The lock is keyed by userData, so setPath must run first. A second CLIDesk.exe
+// or `electron .` for this store focuses the open window and exits before it can
+// start another Claude session. A different userData directory is a separate desk.
+const hasInstanceLock = app.requestSingleInstanceLock();
+let focusWhenReady = false;
+if (!hasInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!focusExistingWindow(window)) focusWhenReady = true;
+  });
+}
 
 function sendChatEvent(event: ChatEvent): void {
   if (window && !window.isDestroyed()) window.webContents.send('chat:event', event);
@@ -90,11 +104,16 @@ function syncChatPersistence(): void {
     createdAt: existing?.createdAt ?? new Date().toISOString(),
     lastActiveAt: new Date().toISOString(),
   };
+  if (existing?.pinned === true) {
+    record.pinned = true;
+    if (existing.pinnedAt) record.pinnedAt = existing.pinnedAt;
+  }
   sessions.upsert(record);
   sessions.saveMessages(sessionId, conversation);
 }
 
 app.whenReady().then(() => {
+  if (!shouldStartMainWindow(hasInstanceLock)) return;
   try {
     const logDir = path.join(app.getPath('userData'), 'logs');
     mkdirSync(logDir, { recursive: true });
@@ -132,6 +151,10 @@ app.whenReady().then(() => {
   });
   window.loadFile(path.join(__dirname, 'renderer/index.html'));
   window.on('closed', () => { window = undefined; session.stop(); chat.stop(); });
+  if (focusWhenReady) {
+    focusExistingWindow(window);
+    focusWhenReady = false;
+  }
 });
 app.on('before-quit', () => { session?.stop(); chat?.stop(); });
 
@@ -391,6 +414,38 @@ ipcMain.handle('models:list', async (event, force: unknown) => {
   }
   if (cached && cached.models.length > 0) return { models: cached.models, fromCache: true, error: probed.error };
   return { models: [], fromCache: false, error: probed.error || t('model.probe.empty', {}, settings.language) };
+});
+
+ipcMain.handle('chat:setPinned', (event, sessionId: unknown, pinned: unknown) => {
+  fromWindow(event.sender);
+  if (typeof sessionId !== 'string' || typeof pinned !== 'boolean') throw new Error(t('ipc.invalidSessionId', {}, appLocale()));
+  const updated = sessions.setPinned(sessionId, pinned);
+  if (!updated) throw new Error(t('ipc.sessionMissing', {}, appLocale()));
+  return updated;
+});
+
+ipcMain.handle('chat:move', (event, sessionId: unknown, projectId: unknown) => {
+  fromWindow(event.sender);
+  if (typeof sessionId !== 'string' || typeof projectId !== 'string') throw new Error(t('ipc.invalidSessionId', {}, appLocale()));
+  const project = projects.snapshot().projects.find(item => item.id === projectId);
+  if (!project) throw new Error(t('project.notRegistered', {}, appLocale()));
+  if (!sessions.get(sessionId)) throw new Error(t('ipc.sessionMissing', {}, appLocale()));
+  const updated = sessions.move(sessionId, project.id, project.directory);
+  if (chat.sessionIdValue() === sessionId) chatProject = { id: project.id, directory: project.directory };
+  return updated;
+});
+
+ipcMain.handle('chat:delete', async (event, sessionId: unknown) => {
+  fromWindow(event.sender);
+  if (typeof sessionId !== 'string') throw new Error(t('ipc.invalidSessionId', {}, appLocale()));
+  if (!sessions.get(sessionId)) throw new Error(t('ipc.sessionMissing', {}, appLocale()));
+  if (chat.sessionIdValue() === sessionId) {
+    if (chat.isBusy()) throw new Error(t('ipc.busySessionDelete', {}, appLocale()));
+    chatProject = undefined;
+    await chat.discardSettled();
+  }
+  sessions.remove(sessionId);
+  return { removed: true };
 });
 
 ipcMain.handle('chat:rename', (event, sessionId: unknown, title: unknown) => {
