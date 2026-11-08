@@ -128,6 +128,7 @@ let errorHintEl: HTMLElement | undefined;
 let healthPanelEl: HTMLElement | undefined;
 let retryErrorBtnEl: HTMLButtonElement | undefined;
 let composerInputEl: HTMLTextAreaElement | undefined;
+let composerInnerEl: HTMLElement | undefined;
 let composerSendBtn: HTMLButtonElement | undefined;
 let composerStopBtn: HTMLButtonElement | undefined;
 let attachmentChipsEl: HTMLElement | undefined;
@@ -235,6 +236,7 @@ function teardown(): void {
   healthPanelEl = undefined;
   retryErrorBtnEl = undefined;
   composerInputEl = undefined;
+  composerInnerEl = undefined;
   composerSendBtn = undefined;
   composerStopBtn = undefined;
   attachmentChipsEl = undefined;
@@ -349,12 +351,24 @@ function renderMarkdown(md: string): string {
 
 function visibleBody(message: ChatMessage): string {
   let html = '';
-  for (const block of message.blocks) {
-    if (block.type === 'text') html += renderMarkdown(block.text);
-    else if (block.type === 'tool_use') {
-      html += `<div class="tooluse"><span>${escapeHtml(t('chat.tool'))}</span> <code>${escapeHtml(block.name)}</code></div>`;
+  let liveTool = -1;
+  if (message.state === 'streaming') {
+    for (let index = message.blocks.length - 1; index >= 0; index -= 1) {
+      const block = message.blocks[index];
+      if (block.type === 'text') break;
+      if (block.type === 'tool_use') {
+        liveTool = index;
+        break;
+      }
     }
   }
+  message.blocks.forEach((block, index) => {
+    if (block.type === 'text') html += renderMarkdown(block.text);
+    else if (block.type === 'tool_use') {
+      const phase = index === liveTool ? 'is-running' : 'is-settled';
+      html += `<div class="tooluse ${phase}"><span>${escapeHtml(t('chat.tool'))}</span> <code>${escapeHtml(block.name)}</code></div>`;
+    }
+  });
   return html;
 }
 
@@ -390,7 +404,9 @@ function statusSpriteFor(state: ChatState): string {
 }
 
 function paintStatusSprite(img: HTMLImageElement | null, src: string): void {
-  if (!img || img.dataset.sprite === src) return;
+  if (!img) return;
+  if (img.classList.contains('home-mark')) img.classList.toggle('is-working', src === STATUS_WORKING);
+  if (img.dataset.sprite === src) return;
   img.dataset.sprite = src;
   img.src = src;
 }
@@ -398,6 +414,7 @@ function paintStatusSprite(img: HTMLImageElement | null, src: string): void {
 function messageElement(message: ChatMessage): HTMLElement {
   const el = document.createElement('div');
   el.className = `msg ${message.role}`;
+  if (message.role === 'assistant' && message.state === 'streaming') el.classList.add('is-streaming');
   el.dataset.id = message.id;
 
   const head = document.createElement('div');
@@ -435,6 +452,7 @@ function messageElement(message: ChatMessage): HTMLElement {
 function updateMessage(message: ChatMessage): void {
   const el = messageEls.get(message.id);
   if (!el) return;
+  el.classList.toggle('is-streaming', message.role === 'assistant' && message.state === 'streaming');
   const body = el.querySelector('.msg-body');
   if (body) body.innerHTML = messageContent(message);
   if (message.role === 'assistant') {
@@ -493,6 +511,7 @@ function syncEmptyState(): void {
         chatDraft = prompt;
         autoResizeTextarea(composerInputEl);
         composerInputEl.focus();
+        syncComposerChrome();
       }
     });
     suggestions.append(chip);
@@ -923,11 +942,19 @@ function updateChatStatus(): void {
   updateComposerButtons();
 }
 
+function syncComposerChrome(): void {
+  const isBusy = chatState === 'generating' || chatState === 'starting' || chatState === 'waiting';
+  composerInnerEl?.classList.toggle('is-busy', isBusy);
+  const ready = !isBusy && Boolean(composerInputEl?.value.trim());
+  composerSendBtn?.classList.toggle('is-ready', ready);
+}
+
 function updateComposerButtons(): void {
   const isBusy = chatState === 'generating' || chatState === 'starting' || chatState === 'waiting';
   if (composerSendBtn) composerSendBtn.disabled = isBusy;
   if (composerStopBtn) composerStopBtn.disabled = !isBusy;
   if (retryErrorBtnEl) retryErrorBtnEl.disabled = isBusy || !lastUserText;
+  syncComposerChrome();
 }
 
 function attachmentIcon(category: AttachmentMetadata['category']): string {
@@ -1125,7 +1152,11 @@ function renderChat(): void {
       if (codeEl) {
         api.copy(codeEl.textContent || '');
         copyBtn.textContent = t('chat.copied');
-        setTimeout(() => { copyBtn.textContent = t('chat.copyCode'); }, 1500);
+        copyBtn.classList.add('is-copied');
+        setTimeout(() => {
+          copyBtn.textContent = t('chat.copyCode');
+          copyBtn.classList.remove('is-copied');
+        }, 1500);
       }
     }
   });
@@ -1148,6 +1179,7 @@ function renderChat(): void {
 
   const composerInner = document.createElement('div');
   composerInner.className = 'chat-composer-inner';
+  composerInnerEl = composerInner;
 
   const attachmentChips = document.createElement('div');
   attachmentChips.className = 'attachment-chips';
@@ -1165,6 +1197,7 @@ function renderChat(): void {
   textarea.addEventListener('input', () => {
     chatDraft = textarea.value;
     autoResizeTextarea(textarea);
+    syncComposerChrome();
   });
   textarea.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1747,6 +1780,7 @@ function render(): void {
   teardown();
   content.replaceChildren();
   content.classList.toggle('chat-mode', page === 'chat');
+  content.dataset.page = page;
 
   if (page === 'projects') {
     const title = document.createElement('h2');
